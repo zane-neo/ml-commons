@@ -5,6 +5,13 @@
 
 package org.opensearch.ml.utils;
 
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
+import static org.opensearch.ml.common.CommonValue.ML_MODEL_GROUP_INDEX;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import com.google.common.collect.ImmutableList;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.join.ScoreMode;
 import org.opensearch.action.ActionListener;
@@ -15,10 +22,16 @@ import org.opensearch.commons.authuser.User;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.NestedQueryBuilder;
+import org.opensearch.index.query.ExistsQueryBuilder;
+import org.opensearch.index.query.IdsQueryBuilder;
+import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.index.query.MatchPhraseQueryBuilder;
+import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.ml.common.MLModelGroup;
 import org.opensearch.ml.common.exception.MLResourceNotFoundException;
 import org.opensearch.ml.common.exception.MLValidationException;
@@ -32,6 +45,17 @@ import static org.opensearch.ml.common.CommonValue.ML_MODEL_GROUP_INDEX;
 
 @Log4j2
 public class SecurityUtils {
+
+    public static final List<Class<?>> SUPPORTED_QUERY_TYPES = ImmutableList.of(
+        IdsQueryBuilder.class,
+        MatchQueryBuilder.class,
+        MatchAllQueryBuilder.class,
+        MatchPhraseQueryBuilder.class,
+        TermQueryBuilder.class,
+        TermsQueryBuilder.class,
+        ExistsQueryBuilder.class,
+        RangeQueryBuilder.class
+    );
 
     public static void validateModelGroupAccess(User user, String modelGroupId, Client client, ActionListener<Boolean> listener) {
         if (modelGroupId == null || isAdmin(user) || user == null) {
@@ -104,17 +128,14 @@ public class SecurityUtils {
     }
 
     public static SearchSourceBuilder addUserBackendRolesFilter(User user, SearchSourceBuilder searchSourceBuilder) {
-
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
         boolQueryBuilder.should(QueryBuilders.termQuery(MLModelGroup.ACCESS, MLModelGroup.PUBLIC));
-        boolQueryBuilder.should(QueryBuilders.termsQuery("backend_roles.keyword", user.getBackendRoles()));
+        boolQueryBuilder.should(QueryBuilders.termsQuery(MLModelGroup.BACKEND_ROLES_FIELD + ".keyword", user.getBackendRoles()));
 
         BoolQueryBuilder privateBoolQuery = new BoolQueryBuilder();
-        String path = "owner";
         String ownerName = "owner.name.keyword";
         TermQueryBuilder ownerNameTermQuery = QueryBuilders.termQuery(ownerName, user.getName());
-        NestedQueryBuilder nestedQueryBuilder = new NestedQueryBuilder(path, ownerNameTermQuery, ScoreMode.None);
-        privateBoolQuery.must(nestedQueryBuilder);
+        privateBoolQuery.must(ownerNameTermQuery);
         privateBoolQuery.must(QueryBuilders.termQuery(MLModelGroup.ACCESS, MLModelGroup.PRIVATE));
         boolQueryBuilder.should(privateBoolQuery);
         QueryBuilder query = searchSourceBuilder.query();
@@ -122,10 +143,19 @@ public class SecurityUtils {
             searchSourceBuilder.query(boolQueryBuilder);
         } else if (query instanceof BoolQueryBuilder) {
             ((BoolQueryBuilder) query).filter(boolQueryBuilder);
+        } else if (SUPPORTED_QUERY_TYPES.stream().anyMatch(x -> x.isAssignableFrom(query.getClass()))) {
+            BoolQueryBuilder rewriteQuery = new BoolQueryBuilder();
+            rewriteQuery.must(query);
+            rewriteQuery.filter(boolQueryBuilder);
+            searchSourceBuilder.query(rewriteQuery);
         } else {
-            throw new MLValidationException("Search API does not support queries other than BoolQuery");
+            throw new MLValidationException("Search API only supports [bool, ids, match, match_all, term, terms, exists, range] query type");
         }
         return searchSourceBuilder;
+    }
+
+    public static SearchSourceBuilder createSearchSourceBuilder(User user) {
+        return addUserBackendRolesFilter(user, new SearchSourceBuilder());
     }
 
 }
