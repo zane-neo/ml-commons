@@ -33,6 +33,7 @@ import org.opensearch.ml.common.transport.register.MLRegisterModelInput;
 import org.opensearch.ml.common.transport.register.MLRegisterModelRequest;
 import org.opensearch.ml.common.transport.register.MLRegisterModelResponse;
 import org.opensearch.ml.engine.ModelHelper;
+import org.opensearch.ml.helper.ModelAccessControlHelper;
 import org.opensearch.ml.indices.MLIndicesHandler;
 import org.opensearch.ml.model.MLModelManager;
 import org.opensearch.ml.stats.MLNodeLevelStat;
@@ -71,8 +72,8 @@ public class TransportRegisterModelAction extends HandledTransportAction<ActionR
     MLTaskDispatcher mlTaskDispatcher;
     MLStats mlStats;
     volatile String trustedUrlRegex;
-    volatile boolean filterByEnabled;
 
+    ModelAccessControlHelper modelAccessControlHelper;
     @Inject
     public TransportRegisterModelAction(
         TransportService transportService,
@@ -87,7 +88,8 @@ public class TransportRegisterModelAction extends HandledTransportAction<ActionR
         Client client,
         DiscoveryNodeHelper nodeFilter,
         MLTaskDispatcher mlTaskDispatcher,
-        MLStats mlStats
+        MLStats mlStats,
+        ModelAccessControlHelper modelAccessControlHelper
     ) {
         super(MLRegisterModelAction.NAME, transportService, actionFilters, MLRegisterModelRequest::new);
         this.transportService = transportService;
@@ -101,11 +103,10 @@ public class TransportRegisterModelAction extends HandledTransportAction<ActionR
         this.nodeFilter = nodeFilter;
         this.mlTaskDispatcher = mlTaskDispatcher;
         this.mlStats = mlStats;
+        this.modelAccessControlHelper = modelAccessControlHelper;
 
         trustedUrlRegex = ML_COMMONS_TRUSTED_URL_REGEX.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(ML_COMMONS_TRUSTED_URL_REGEX, it -> trustedUrlRegex = it);
-        filterByEnabled = ML_COMMONS_VALIDATE_BACKEND_ROLES.get(settings);
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(ML_COMMONS_VALIDATE_BACKEND_ROLES, it -> filterByEnabled = it);
     }
 
     @Override
@@ -116,10 +117,10 @@ public class TransportRegisterModelAction extends HandledTransportAction<ActionR
         Pattern pattern = Pattern.compile(trustedUrlRegex);
         String url = registerModelInput.getUrl();
 
-        SecurityUtils.validateModelGroupAccess(user, registerModelInput.getModelGroupId(), client, ActionListener.wrap(access -> {
-            if (filterByEnabled && !access) {
-                log.error("User doesn't have valid privilege to perform this operation");
-                listener.onFailure(new IllegalArgumentException("User doesn't have valid privilege to perform this operation"));
+        modelAccessControlHelper.validateModelGroupAccess(user, registerModelInput.getModelGroupId(), client, ActionListener.wrap(access -> {
+            if (!access) {
+                log.error("User doesn't have valid privilege to perform this operation on this model");
+                listener.onFailure(new IllegalArgumentException("User doesn't have valid privilege to perform this operation on this model"));
             } else {
                 if (url != null) {
                     boolean validUrl = pattern.matcher(url).find();

@@ -107,6 +107,7 @@ import org.opensearch.ml.engine.ModelHelper;
 import org.opensearch.ml.engine.algorithms.anomalylocalization.AnomalyLocalizerImpl;
 import org.opensearch.ml.engine.algorithms.metrics_correlation.MetricsCorrelation;
 import org.opensearch.ml.engine.algorithms.sample.LocalSampleCalculator;
+import org.opensearch.ml.helper.ModelAccessControlHelper;
 import org.opensearch.ml.indices.MLIndicesHandler;
 import org.opensearch.ml.indices.MLInputDatasetHandler;
 import org.opensearch.ml.model.MLModelCacheHelper;
@@ -194,6 +195,8 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin {
 
     public static final String ML_ROLE_NAME = "ml";
     private NamedXContentRegistry xContentRegistry;
+
+    private ModelAccessControlHelper modelAccessControlHelper;
 
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
@@ -353,8 +356,8 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin {
 
         MetricsCorrelation metricsCorrelation = new MetricsCorrelation(client, settings);
         MLEngineClassLoader.register(FunctionName.METRICS_CORRELATION, metricsCorrelation);
-
-        MLSearchHandler mlSearchHandler = new MLSearchHandler(client, xContentRegistry, settings, clusterService);
+        modelAccessControlHelper = new ModelAccessControlHelper(clusterService, settings);
+        MLSearchHandler mlSearchHandler = new MLSearchHandler(client, xContentRegistry, modelAccessControlHelper);
         MLModelAutoReDeployer mlModelAutoRedeployer = new MLModelAutoReDeployer(
             clusterService,
             client,
@@ -392,6 +395,7 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin {
                 mlPredictTaskRunner,
                 mlTrainAndPredictTaskRunner,
                 mlExecuteTaskRunner,
+                modelAccessControlHelper,
                 mlSearchHandler,
                 mlTaskDispatcher,
                 mlModelChunkUploader,
