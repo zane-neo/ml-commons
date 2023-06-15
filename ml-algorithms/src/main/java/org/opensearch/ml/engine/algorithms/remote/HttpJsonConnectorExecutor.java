@@ -14,7 +14,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.ml.common.connector.AbstractConnector;
 import org.opensearch.ml.common.connector.Connector;
@@ -25,12 +24,12 @@ import org.opensearch.ml.common.output.model.ModelTensor;
 import org.opensearch.ml.common.output.model.ModelTensorOutput;
 import org.opensearch.ml.common.output.model.ModelTensors;
 import org.opensearch.ml.engine.annotation.ConnectorExecutor;
+import org.opensearch.ml.engine.httpclient.MLHttpClientFactory;
 import org.opensearch.script.ScriptService;
 
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -107,7 +106,7 @@ public class HttpJsonConnectorExecutor implements RemoteConnectorExecutor {
             }
 
             AccessController.doPrivileged((PrivilegedExceptionAction<Void>) () -> {
-                try (CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+                try (CloseableHttpClient httpClient = MLHttpClientFactory.getCloseableHttpClient();
                      CloseableHttpResponse response = httpClient.execute(request)) {
                     HttpEntity responseEntity = response.getEntity();
                     String responseBody = EntityUtils.toString(responseEntity);
