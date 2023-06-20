@@ -372,7 +372,7 @@ public class ChatConnectorExecutor implements RemoteConnectorExecutor{
             }
             AccessController.doPrivileged((PrivilegedExceptionAction<Void>) () -> {
                 try (CloseableHttpClient httpClient = MLHttpClientFactory.getCloseableHttpClient();
-                     CloseableHttpResponse response = httpClient.execute(request)) {
+                    CloseableHttpResponse response = httpClient.execute(request)) {
                     HttpEntity responseEntity = response.getEntity();
                     String responseBody = EntityUtils.toString(responseEntity);
                     EntityUtils.consume(responseEntity);

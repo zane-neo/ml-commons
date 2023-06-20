@@ -11,6 +11,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.LaxRedirectStrategy;
 import org.apache.http.impl.conn.DefaultSchemePortResolver;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
 import org.apache.logging.log4j.util.Strings;
 
@@ -49,6 +50,11 @@ public class MLHttpClientFactory {
                 return false;
             }
         });
+
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setMaxTotal(600); // Increase the maximum number of connections
+        connectionManager.setDefaultMaxPerRoute(200); // Increase the maximum number of connections per route
+        builder.setConnectionManager(connectionManager);
         return builder.build();
     }
 
