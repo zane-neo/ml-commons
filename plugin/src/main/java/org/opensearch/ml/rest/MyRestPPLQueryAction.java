@@ -11,8 +11,10 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchSecurityException;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.ml.common.conversation.ActionConstants;
+import org.opensearch.ml.common.transport.connector.MLCreateConnectorResponse;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
@@ -27,6 +29,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 import static org.opensearch.core.rest.RestStatus.BAD_REQUEST;
 import static org.opensearch.core.rest.RestStatus.INTERNAL_SERVER_ERROR;
@@ -77,11 +80,14 @@ public class MyRestPPLQueryAction extends BaseRestHandler {
   protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient nodeClient) {
     TransportPPLQueryRequest transportPPLQueryRequest =
         new TransportPPLQueryRequest(PPLQueryRequestFactory.getPPLRequest(request));
+    LOG.info("request classloader: " + transportPPLQueryRequest.getClass().getClassLoader());
+    LOG.info("response classloader:" + TransportPPLQueryResponse.class.getClassLoader());
 
     return channel ->
         nodeClient.execute(
             PPLQueryAction.INSTANCE,
             transportPPLQueryRequest,
+            wrapActionListener(
             new ActionListener<>() {
               @Override
               public void onResponse(TransportPPLQueryResponse response) {
@@ -107,7 +113,7 @@ public class MyRestPPLQueryAction extends BaseRestHandler {
                   reportError(channel, e, INTERNAL_SERVER_ERROR);
                 }
               }
-            });
+            }));
   }
 
   private void sendResponse(RestChannel channel, RestStatus status, String content) {
@@ -116,5 +122,12 @@ public class MyRestPPLQueryAction extends BaseRestHandler {
 
   private void reportError(final RestChannel channel, final Exception e, final RestStatus status) {
     channel.sendResponse(new BytesRestResponse(status, e.getMessage()));
+  }
+  private  ActionListener<TransportPPLQueryResponse> wrapActionListener(
+      final ActionListener<TransportPPLQueryResponse> listener) {
+      return ActionListener.wrap(r -> {
+        TransportPPLQueryResponse pplQueryResponse = TransportPPLQueryResponse.fromActionResponse(r);
+        listener.onResponse(pplQueryResponse);
+    }, listener::onFailure);
   }
 }
