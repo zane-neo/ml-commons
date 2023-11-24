@@ -145,7 +145,7 @@ import org.opensearch.ml.memory.index.OpenSearchConversationalMemoryHandler;
 import org.opensearch.ml.model.MLModelCacheHelper;
 import org.opensearch.ml.model.MLModelManager;
 //import org.opensearch.ml.rest.MyRestPPLQueryAction;
-import org.opensearch.ml.rest.MyRestPPLQueryAction;
+//import org.opensearch.ml.rest.MyRestPPLQueryAction;
 import org.opensearch.ml.rest.RestMLCreateConnectorAction;
 import org.opensearch.ml.rest.RestMLDeleteConnectorAction;
 import org.opensearch.ml.rest.RestMLDeleteModelAction;
@@ -556,7 +556,7 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin, Searc
         RestMemoryGetInteractionsAction restListInteractionsAction = new RestMemoryGetInteractionsAction();
         RestMemoryDeleteConversationAction restDeleteConversationAction = new RestMemoryDeleteConversationAction();
         RestMLUpdateConnectorAction restMLUpdateConnectorAction = new RestMLUpdateConnectorAction(mlFeatureEnabledSetting);
-        MyRestPPLQueryAction restPPLQueryAction = new MyRestPPLQueryAction();
+//        MyRestPPLQueryAction restPPLQueryAction = new MyRestPPLQueryAction();
         return ImmutableList
             .of(
                 restMLStatsAction,
@@ -590,8 +590,8 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin, Searc
                 restCreateInteractionAction,
                 restListInteractionsAction,
                 restDeleteConversationAction,
-                restMLUpdateConnectorAction,
-                restPPLQueryAction
+                restMLUpdateConnectorAction
+//                restPPLQueryAction
             );
     }
 
