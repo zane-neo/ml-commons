@@ -144,8 +144,8 @@ import org.opensearch.ml.memory.action.conversation.GetInteractionsTransportActi
 import org.opensearch.ml.memory.index.OpenSearchConversationalMemoryHandler;
 import org.opensearch.ml.model.MLModelCacheHelper;
 import org.opensearch.ml.model.MLModelManager;
-//import org.opensearch.ml.rest.MyRestPPLQueryAction;
-//import org.opensearch.ml.rest.MyRestPPLQueryAction;
+//import org.opensearch.ml.engine.algorithms.MyRestPPLQueryAction;
+//import org.opensearch.ml.engine.algorithms.MyRestPPLQueryAction;
 import org.opensearch.ml.rest.RestMLCreateConnectorAction;
 import org.opensearch.ml.rest.RestMLDeleteConnectorAction;
 import org.opensearch.ml.rest.RestMLDeleteModelAction;
