@@ -68,6 +68,9 @@ dependencies {
 
 configurations.all {
     resolutionStrategy.force 'com.google.protobuf:protobuf-java:3.21.9'
+//    resolutionStrategy.force 'com.fasterxml.jackson.core:jackson-annotations:2.16.0'
+//    resolutionStrategy.force 'org.opensearch.client:opensearch-rest-client:2.12.0-SNAPSHOT'
+//    resolutionStrategy.force 'com.fasterxml.jackson.core:jackson-databind:2.16.0'
 }
 
 jacocoTestReport {
