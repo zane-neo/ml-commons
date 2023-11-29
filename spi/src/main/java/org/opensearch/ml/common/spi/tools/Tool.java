@@ -5,6 +5,7 @@
 
 package org.opensearch.ml.common.spi.tools;
 
+import org.opensearch.client.Client;
 import org.opensearch.core.action.ActionListener;
 import java.util.Map;
 
@@ -107,6 +108,10 @@ public interface Tool {
         return false;
     }
 
+    default Factory<? extends Tool> getFactory() {
+        return null;
+    }
+
     /**
      * Tool factory which can create instance of {@link Tool}.
      * @param <T> The subclass this factory produces
@@ -119,6 +124,10 @@ public interface Tool {
          * @return an instance of this tool
          */
         T create(Map<String, Object> params);
+
+        default void initClient(Client client) {
+
+        }
 
         /**
          * Get the default description of this tool.

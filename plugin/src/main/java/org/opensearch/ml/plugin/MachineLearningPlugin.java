@@ -10,16 +10,24 @@ import static org.opensearch.ml.common.CommonValue.ML_CONNECTOR_INDEX;
 import static org.opensearch.ml.common.CommonValue.ML_MODEL_INDEX;
 import static org.opensearch.ml.common.CommonValue.ML_TASK_INDEX;
 
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.security.AccessController;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
+import org.apache.lucene.spatial3d.geom.Tools;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
@@ -871,6 +879,12 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin, Searc
     @Override
     public void loadExtensions(ExtensionLoader loader) {
         externalToolFactories = new HashMap<>();
+        ServiceLoader<Tool> serviceLoader = ServiceLoader.load(Tool.class, Tool.class.getClassLoader());
+        for (Tool tool : serviceLoader) {
+            Tool.Factory<? extends Tool> factory = tool.getFactory();
+            externalToolFactories.put(tool.getType(), factory);
+        }
+
         for (MLCommonsExtension extension : loader.loadExtensions(MLCommonsExtension.class)) {
             List<Tool.Factory<? extends Tool>> toolFactories = extension.getToolFactories();
             for (Tool.Factory<? extends Tool> toolFactory : toolFactories) {

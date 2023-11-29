@@ -167,7 +167,9 @@ public class MLFlowAgentRunner {
         if (!toolFactories.containsKey(toolSpec.getType())) {
             throw new IllegalArgumentException("Tool not found: " + toolSpec.getType());
         }
-        Tool tool = toolFactories.get(toolSpec.getType()).create(toolParams);
+        Tool.Factory factory = toolFactories.get(toolSpec.getType());
+        factory.initClient(client);
+        Tool tool = factory.create(toolParams);
         if (toolSpec.getName() != null) {
             tool.setName(toolSpec.getName());
         }
