@@ -187,7 +187,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
     void deleteModelChunks(String modelId, DeleteResponse deleteResponse, ActionListener<DeleteResponse> actionListener) {
         DeleteByQueryRequest deleteModelsRequest = new DeleteByQueryRequest(ML_MODEL_INDEX);
         deleteModelsRequest.setQuery(new TermsQueryBuilder(MODEL_ID_FIELD, modelId));
-
+        long startTime = System.currentTimeMillis();
         client.execute(DeleteByQueryAction.INSTANCE, deleteModelsRequest, ActionListener.wrap(r -> {
             if ((r.getBulkFailures() == null || r.getBulkFailures().size() == 0)
                 && (r.getSearchFailures() == null || r.getSearchFailures().size() == 0)) {
@@ -197,7 +197,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
                     // ResourceNotFound is returned to notify that this model was deleted.
                     // This is a walk around to avoid cleaning up model leftovers. Will revisit if
                     // necessary.
-                    actionListener.onResponse(deleteResponse);
+                   log.info("####################################### Delete model chunks success!" + modelId + ", time taken: " + (System.currentTimeMillis() - startTime));
                 }
             } else {
                 returnFailure(r, modelId, actionListener);
@@ -218,7 +218,8 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
             errorMessage = OS_STATUS_EXCEPTION_MESSAGE + ", " + SEARCH_FAILURE_MSG + modelId;
         }
         log.debug(response.toString());
-        actionListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.INTERNAL_SERVER_ERROR));
+        log.info("####################################### Delete model failed!" + modelId + ", response is: " + response);
+//        actionListener.onFailure(new OpenSearchStatusException(errorMessage, RestStatus.INTERNAL_SERVER_ERROR));
     }
 
     private void deleteModel(String modelId, ActionListener<DeleteResponse> actionListener) {
@@ -229,6 +230,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
                 deleteModelChunks(modelId, deleteResponse, actionListener);
                 deleteModelController(modelId);
                 log.info("####################################### Delete model after delete chunks!" + modelId);
+                actionListener.onResponse(deleteResponse);
             }
 
             @Override
