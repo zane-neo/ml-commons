@@ -92,6 +92,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
     protected void doExecute(Task task, ActionRequest request, ActionListener<DeleteResponse> actionListener) {
         MLModelDeleteRequest mlModelDeleteRequest = MLModelDeleteRequest.fromActionRequest(request);
         String modelId = mlModelDeleteRequest.getModelId();
+        log.info("####################################### Delete model started!" + modelId);
         MLModelGetRequest mlModelGetRequest = new MLModelGetRequest(modelId, false, false);
         FetchSourceContext fetchSourceContext = getFetchSourceContext(mlModelGetRequest.isReturnContent());
         GetRequest getRequest = new GetRequest(ML_MODEL_INDEX).id(modelId).fetchSourceContext(fetchSourceContext);
@@ -121,6 +122,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
                                             RestStatus.FORBIDDEN
                                         )
                                     );
+                                log.info("####################################### Delete model no permission!" + modelId);
                             } else {
                                 if (isModelNotDeployed(mlModelState)) {
                                     deleteModel(modelId, actionListener);
@@ -131,6 +133,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
                                                 "Model cannot be deleted in deploying or deployed state. Try undeploy model first then delete"
                                             )
                                         );
+                                    log.info("####################################### Delete model status not correct!" + modelId);
                                 }
                             }
                         } else {
@@ -144,6 +147,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
                                                     RestStatus.FORBIDDEN
                                                 )
                                             );
+                                        log.info("####################################### Delete model no permission 1!" + modelId);
                                     } else if (isModelNotDeployed(mlModelState)) {
                                         deleteModel(modelId, actionListener);
                                     } else {
@@ -153,22 +157,27 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
                                                     "Model cannot be deleted in deploying or deployed state. Try undeploy model first then delete"
                                                 )
                                             );
+                                        log.info("####################################### Delete model status not correct 2!" + modelId);
                                     }
                                 }, e -> {
                                     log.error("Failed to validate Access for Model Id " + modelId, e);
+                                    log.info("####################################### Delete model Failed to validate Access for Model Id!" + modelId);
                                     wrappedListener.onFailure(e);
                                 }));
                         }
                     } catch (Exception e) {
                         log.error("Failed to parse ml model " + r.getId(), e);
                         wrappedListener.onFailure(e);
+                        log.info("####################################### Delete model Failed to parse ml model!" + modelId);
                     }
                 } else {
                     wrappedListener.onFailure(new OpenSearchStatusException("Failed to find model", RestStatus.NOT_FOUND));
+                    log.info("####################################### Delete model Failed to find model!" + modelId);
                 }
             }, e -> { wrappedListener.onFailure(e); }));
         } catch (Exception e) {
             log.error("Failed to delete ML model " + modelId, e);
+            log.info("####################################### Delete model Failed to delete ML model!" + modelId);
             actionListener.onFailure(e);
         }
     }
@@ -218,6 +227,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
             public void onResponse(DeleteResponse deleteResponse) {
                 deleteModelChunks(modelId, deleteResponse, actionListener);
                 deleteModelController(modelId);
+                log.info("####################################### Delete model after delete chunks!" + modelId);
             }
 
             @Override
@@ -228,6 +238,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<ActionReq
                     deleteModelController(modelId);
                 }
                 actionListener.onFailure(e);
+                log.info("####################################### Delete model and trunks and controller failed!" + modelId);
             }
         });
     }
