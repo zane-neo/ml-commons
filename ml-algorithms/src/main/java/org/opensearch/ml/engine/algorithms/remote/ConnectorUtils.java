@@ -256,7 +256,7 @@ public class ConnectorUtils {
         return signer.sign(request, params);
     }
 
-    public static SdkHttpFullRequest buildSdkRequest(Connector connector, Map<String, String> parameters, String payload, SdkHttpMethod method, ActionListener<Queue<ModelTensors>> actionListener) {
+    public static SdkHttpFullRequest buildSdkRequest(Connector connector, Map<String, String> parameters, String payload, SdkHttpMethod method, ActionListener<List<ModelTensors>> actionListener) {
         String endpoint = connector.getPredictEndpoint(parameters);
         String charset = parameters.getOrDefault("charset", "UTF-8");
         RequestBody requestBody = RequestBody.fromString(payload, Charset.forName(charset));
