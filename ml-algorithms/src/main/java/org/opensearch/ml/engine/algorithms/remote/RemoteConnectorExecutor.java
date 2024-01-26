@@ -79,7 +79,7 @@ public interface RemoteConnectorExecutor {
             }
         } else {
             // consider as batch.
-            return Tuple.tuple(1, 1);
+            return Tuple.tuple(1, textDocsLength);
         }
     }
 
