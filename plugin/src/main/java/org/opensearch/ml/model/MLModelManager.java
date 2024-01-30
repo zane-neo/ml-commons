@@ -1814,6 +1814,7 @@ public class MLModelManager {
         double durationInMs = (end - startTime) / 1e6;
         modelCacheHelper.addModelInferenceDuration(modelId, durationInMs);
     }
+
     public FunctionName getModelFunctionName(String modelId) {
         return modelCacheHelper.getFunctionName(modelId);
     }
