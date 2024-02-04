@@ -13,20 +13,15 @@ import static org.opensearch.ml.common.utils.StringUtils.gson;
 import static org.opensearch.ml.common.utils.StringUtils.processTextDoc;
 import static org.opensearch.ml.common.utils.StringUtils.processTextDocs;
 import static org.opensearch.ml.engine.utils.ScriptUtils.executePostProcessFunction;
-import static org.opensearch.ml.engine.utils.ScriptUtils.executePreprocessFunction;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.security.AccessController;
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.function.Function;
 
 import org.apache.commons.lang3.StringUtils;
