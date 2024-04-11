@@ -7,6 +7,7 @@ package org.opensearch.ml.common.transport.connector;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.core.common.io.stream.InputStreamStreamInput;
@@ -22,9 +23,12 @@ import java.io.UncheckedIOException;
 import static org.opensearch.action.ValidateActions.addValidationError;
 
 @Getter
+@Setter
 public class MLConnectorGetRequest extends ActionRequest {
 
     String connectorId;
+
+    String tenantId;
     boolean returnContent;
 
     @Builder

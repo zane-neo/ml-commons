@@ -5,21 +5,17 @@
 
 package org.opensearch.ml.engine.indices;
 
-import static org.opensearch.ml.common.CommonValue.META;
-import static org.opensearch.ml.common.CommonValue.SCHEMA_VERSION_FIELD;
-import static org.opensearch.ml.common.utils.IndexUtils.INDEX_SETTINGS;
-import static org.opensearch.ml.common.utils.IndexUtils.UPDATED_INDEX_SETTINGS;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.OpenSearchWrapperException;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
+import org.opensearch.action.support.PlainActionFuture;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
@@ -29,10 +25,15 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.ml.common.CommonValue;
 import org.opensearch.ml.common.exception.MLException;
 
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
-import lombok.extern.log4j.Log4j2;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.opensearch.ml.common.CommonValue.META;
+import static org.opensearch.ml.common.CommonValue.SCHEMA_VERSION_FIELD;
+import static org.opensearch.ml.common.utils.IndexUtils.INDEX_SETTINGS;
+import static org.opensearch.ml.common.utils.IndexUtils.UPDATED_INDEX_SETTINGS;
 
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @RequiredArgsConstructor
@@ -59,6 +60,12 @@ public class MLIndicesHandler {
 
     public void initMLTaskIndex(ActionListener<Boolean> listener) {
         initMLIndexIfAbsent(MLIndex.TASK, listener);
+    }
+
+    public boolean initMLConnectorIndex() throws ExecutionException, InterruptedException {
+        PlainActionFuture<Boolean> actionFuture = PlainActionFuture.newFuture();
+        initMLConnectorIndex(actionFuture);
+        return actionFuture.get();
     }
 
     public void initMLConnectorIndex(ActionListener<Boolean> listener) {

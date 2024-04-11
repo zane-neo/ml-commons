@@ -15,6 +15,7 @@ import java.util.Locale;
 
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.ml.common.input.Constants;
 import org.opensearch.ml.common.transport.connector.MLCreateConnectorAction;
 import org.opensearch.ml.common.transport.connector.MLCreateConnectorInput;
 import org.opensearch.ml.common.transport.connector.MLCreateConnectorRequest;
@@ -71,6 +72,8 @@ public class RestMLCreateConnectorAction extends BaseRestHandler {
         XContentParser parser = request.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
         MLCreateConnectorInput mlCreateConnectorInput = MLCreateConnectorInput.parse(parser);
+        String tenantId = (String) request.getHeaders().get(Constants.TENANT_ID).get(0);
+        mlCreateConnectorInput.setTenantId(tenantId);
         return new MLCreateConnectorRequest(mlCreateConnectorInput);
     }
 }

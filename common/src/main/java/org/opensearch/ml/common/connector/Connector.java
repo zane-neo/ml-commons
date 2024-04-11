@@ -16,6 +16,10 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.apache.commons.text.StringSubstitutor;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -38,9 +42,20 @@ import static org.opensearch.ml.common.utils.StringUtils.gson;
 /**
  * Connector defines how to connect to a remote service.
  */
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.EXISTING_PROPERTY,
+        property = "protocol")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = HttpConnector.class, name = ConnectorProtocols.HTTP),
+        @JsonSubTypes.Type(value = AwsConnector.class, name = ConnectorProtocols.AWS_SIGV4)})
+@JsonIgnoreProperties(ignoreUnknown = true)
 public interface Connector extends ToXContentObject, Writeable {
 
     String getName();
+
+    String getTenantId();
+    void setTenantId(String tenantId);
     String getProtocol();
     User getOwner();
     void setOwner(User user);

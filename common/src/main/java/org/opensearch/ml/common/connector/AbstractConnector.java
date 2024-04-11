@@ -54,6 +54,9 @@ public abstract class AbstractConnector implements Connector {
     protected Map<String, String> parameters;
     protected Map<String, String> credential;
     protected Map<String, String> decryptedHeaders;
+
+    @Setter
+    protected String tenantId;
     @Setter
     protected Map<String, String> decryptedCredential;
 

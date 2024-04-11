@@ -46,6 +46,20 @@ opensearchplugin {
 }
 
 dependencies {
+    configurations.all {
+        resolutionStrategy.force 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
+        resolutionStrategy.force 'org.apache.httpcomponents.core5:httpcore5:5.2.4'
+        resolutionStrategy.force 'org.apache.httpcomponents.core5:httpcore5-h2:5.2.4'
+        resolutionStrategy.force 'com.fasterxml.jackson.core:jackson-core:2.17.0'
+        resolutionStrategy.force 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+        resolutionStrategy.force 'com.fasterxml.jackson.core:jackson-annotations:2.17.0'
+        resolutionStrategy.force 'com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:2.17.0'
+        resolutionStrategy.force 'com.fasterxml.jackson.dataformat:jackson-dataformat-smile:2.17.0'
+        resolutionStrategy.force 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.0'
+        resolutionStrategy.force 'jakarta.json:jakarta.json-api:2.1.3'
+        resolutionStrategy.force 'net.bytebuddy:byte-buddy:1.14.9'
+        resolutionStrategy.force "org.opensearch.client:opensearch-rest-client:${opensearch_version}"
+    }
     implementation project(path: ":${rootProject.name}-spi", configuration: 'shadow')
     implementation project(path: ":${rootProject.name}-common", configuration: 'shadow')
     implementation project(':opensearch-ml-algorithms')
@@ -61,7 +75,18 @@ dependencies {
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.10.1'
     implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.10'
     implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
+    implementation group: 'org.apache.commons', name: 'commons-text', version: '1.10.0'
     implementation "org.apache.logging.log4j:log4j-slf4j-impl:2.19.0"
+    implementation("org.opensearch.client:opensearch-rest-client:${opensearch_version}") {
+        exclude group: 'org.apache.httpcomponents.client5', module: 'httpclient5'
+        exclude group: 'org.apache.httpcomponents.core5', module: 'httpcore5'
+        exclude group: 'org.apache.httpcomponents.core5', module: 'httpcore5-h2'
+    }
+    implementation "org.opensearch.client:opensearch-java:2.9.1"
+    implementation 'software.amazon.awssdk:apache-client:2.21.15'
+    implementation 'software.amazon.awssdk:http-client-spi:2.21.15'
+    implementation 'software.amazon.awssdk:regions:2.21.15'
+    implementation 'software.amazon.awssdk:utils:2.21.15'
     testImplementation group: 'commons-io', name: 'commons-io', version: '2.15.1'
     implementation group: 'org.apache.commons', name: 'commons-text', version: '1.10.0'
 

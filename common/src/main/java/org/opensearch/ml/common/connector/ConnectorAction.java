@@ -5,9 +5,11 @@
 
 package org.opensearch.ml.common.connector;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -23,6 +25,8 @@ import static org.opensearch.core.xcontent.XContentParserUtils.ensureExpectedTok
 
 @Getter
 @EqualsAndHashCode
+@NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ConnectorAction implements ToXContentObject, Writeable {
 
     public static final String ACTION_TYPE_FIELD = "action_type";

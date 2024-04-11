@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.client.node.NodeClient;
+import org.opensearch.ml.common.input.Constants;
 import org.opensearch.ml.common.transport.connector.MLConnectorGetAction;
 import org.opensearch.ml.common.transport.connector.MLConnectorGetRequest;
 import org.opensearch.rest.BaseRestHandler;
@@ -60,6 +61,9 @@ public class RestMLGetConnectorAction extends BaseRestHandler {
         String connectorId = getParameterId(request, PARAMETER_CONNECTOR_ID);
         boolean returnContent = returnContent(request);
 
-        return new MLConnectorGetRequest(connectorId, returnContent);
+        MLConnectorGetRequest mlConnectorGetRequest = new MLConnectorGetRequest(connectorId, returnContent);
+        String tenantId = (String) request.getHeaders().get(Constants.TENANT_ID).get(0);
+        mlConnectorGetRequest.setTenantId(tenantId);
+        return mlConnectorGetRequest;
     }
 }
