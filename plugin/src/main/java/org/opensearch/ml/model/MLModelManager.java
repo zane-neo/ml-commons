@@ -62,6 +62,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -120,6 +121,7 @@ import org.opensearch.ml.common.transport.deploy.MLDeployModelResponse;
 import org.opensearch.ml.common.transport.register.MLRegisterModelInput;
 import org.opensearch.ml.common.transport.register.MLRegisterModelResponse;
 import org.opensearch.ml.common.transport.upload_chunk.MLRegisterModelMetaInput;
+import org.opensearch.ml.dao.model.ModelDao;
 import org.opensearch.ml.engine.MLEngine;
 import org.opensearch.ml.engine.MLExecutable;
 import org.opensearch.ml.engine.ModelHelper;
@@ -143,6 +145,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 
 import lombok.extern.log4j.Log4j2;
+
 
 /**
  * Manager class for ML models. It contains ML model related operations like
@@ -173,15 +176,15 @@ public class MLModelManager {
     private volatile Integer maxRegisterTasksPerNode;
     private volatile Integer maxDeployTasksPerNode;
 
-    public static final ImmutableSet MODEL_DONE_STATES = ImmutableSet
-        .of(
-            MLModelState.TRAINED,
-            MLModelState.REGISTERED,
-            MLModelState.DEPLOYED,
-            MLModelState.PARTIALLY_DEPLOYED,
-            MLModelState.DEPLOY_FAILED,
-            MLModelState.UNDEPLOYED
-        );
+    private ModelDao modelDao;
+
+    public static final ImmutableSet MODEL_DONE_STATES = ImmutableSet.of(MLModelState.TRAINED,
+        MLModelState.REGISTERED,
+        MLModelState.DEPLOYED,
+        MLModelState.PARTIALLY_DEPLOYED,
+        MLModelState.DEPLOY_FAILED,
+        MLModelState.UNDEPLOYED
+    );
 
     public MLModelManager(
         ClusterService clusterService,
@@ -197,7 +200,8 @@ public class MLModelManager {
         MLTaskManager mlTaskManager,
         MLModelCacheHelper modelCacheHelper,
         MLEngine mlEngine,
-        DiscoveryNodeHelper nodeHelper
+        DiscoveryNodeHelper nodeHelper,
+        ModelDao modelDao
     ) {
         this.client = client;
         this.threadPool = threadPool;
@@ -212,7 +216,7 @@ public class MLModelManager {
         this.mlTaskManager = mlTaskManager;
         this.mlEngine = mlEngine;
         this.nodeHelper = nodeHelper;
-
+        this.modelDao = modelDao;
         this.maxModelPerNode = ML_COMMONS_MAX_MODELS_PER_NODE.get(settings);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(ML_COMMONS_MAX_MODELS_PER_NODE, it -> maxModelPerNode = it);
 
@@ -243,8 +247,7 @@ public class MLModelManager {
                         if (modelGroup.isExists()) {
                             Map<String, Object> modelGroupSource = modelGroup.getSourceAsMap();
                             int updatedVersion = incrementLatestVersion(modelGroupSource);
-                            UpdateRequest updateModelGroupRequest = createUpdateModelGroupRequest(
-                                modelGroupSource,
+                            UpdateRequest updateModelGroupRequest = createUpdateModelGroupRequest(modelGroupSource,
                                 modelGroupId,
                                 modelGroup.getSeqNo(),
                                 modelGroup.getPrimaryTerm(),
@@ -318,8 +321,7 @@ public class MLModelManager {
                     log.debug("Index model meta doc successfully {}", modelName);
                     wrappedListener.onResponse(response.getId());
                 }, e -> {
-                    deleteOrUpdateModelGroup(
-                        mlRegisterModelMetaInput.getModelGroupId(),
+                    deleteOrUpdateModelGroup(mlRegisterModelMetaInput.getModelGroupId(),
                         mlRegisterModelMetaInput.getDoesVersionCreateModelGroup(),
                         version
                     );
@@ -337,66 +339,19 @@ public class MLModelManager {
     }
 
     /**
-     *
      * @param mlRegisterModelInput register model input for remote models
      * @param mlTask               ML task
      * @param listener             action listener
      */
     public void registerMLRemoteModel(
-        MLRegisterModelInput mlRegisterModelInput,
-        MLTask mlTask,
-        ActionListener<MLRegisterModelResponse> listener
+        MLRegisterModelInput mlRegisterModelInput, MLTask mlTask, ActionListener<MLRegisterModelResponse> listener
     ) {
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             checkAndAddRunningTask(mlTask, maxRegisterTasksPerNode);
             mlStats.getStat(MLNodeLevelStat.ML_REQUEST_COUNT).increment();
             mlStats.createCounterStatIfAbsent(mlTask.getFunctionName(), REGISTER, ML_ACTION_REQUEST_COUNT).increment();
             mlStats.getStat(MLNodeLevelStat.ML_EXECUTING_TASK_COUNT).increment();
-
-            String modelGroupId = mlRegisterModelInput.getModelGroupId();
-            GetRequest getModelGroupRequest = new GetRequest(ML_MODEL_GROUP_INDEX).id(modelGroupId);
-            client.get(getModelGroupRequest, ActionListener.wrap(getModelGroupResponse -> {
-                if (getModelGroupResponse.isExists()) {
-                    Map<String, Object> modelGroupSourceMap = getModelGroupResponse.getSourceAsMap();
-                    int updatedVersion = incrementLatestVersion(modelGroupSourceMap);
-                    UpdateRequest updateModelGroupRequest = createUpdateModelGroupRequest(
-                        modelGroupSourceMap,
-                        modelGroupId,
-                        getModelGroupResponse.getSeqNo(),
-                        getModelGroupResponse.getPrimaryTerm(),
-                        updatedVersion
-                    );
-                    client.update(updateModelGroupRequest, ActionListener.wrap(r -> {
-                        indexRemoteModel(mlRegisterModelInput, mlTask, updatedVersion + "", listener);
-                    }, e -> {
-                        log.error("Failed to update model group " + modelGroupId, e);
-                        handleException(mlRegisterModelInput.getFunctionName(), mlTask.getTaskId(), e);
-                        listener.onFailure(e);
-                    }));
-                } else {
-                    log.error("Model group response is empty");
-                    handleException(
-                        mlRegisterModelInput.getFunctionName(),
-                        mlTask.getTaskId(),
-                        new MLValidationException("Model group not found")
-                    );
-                    listener.onFailure(new MLResourceNotFoundException("Model Group Response is empty for " + modelGroupId));
-                }
-            }, error -> {
-                if (error instanceof IndexNotFoundException) {
-                    log.error("Model group Index is missing");
-                    handleException(
-                        mlRegisterModelInput.getFunctionName(),
-                        mlTask.getTaskId(),
-                        new MLResourceNotFoundException("Failed to get model group due to index missing")
-                    );
-                    listener.onFailure(error);
-                } else {
-                    log.error("Failed to get model group", error);
-                    handleException(mlRegisterModelInput.getFunctionName(), mlTask.getTaskId(), error);
-                    listener.onFailure(error);
-                }
-            }));
+            indexRemoteModel(mlRegisterModelInput, mlTask,  null, listener);
         } catch (Exception e) {
             log.error("Failed to register remote model", e);
             handleException(mlRegisterModelInput.getFunctionName(), mlTask.getTaskId(), e);
@@ -507,69 +462,50 @@ public class MLModelManager {
         MLTask mlTask,
         String modelVersion,
         ActionListener<MLRegisterModelResponse> listener
-    ) {
+    ) throws ExecutionException, InterruptedException {
         String taskId = mlTask.getTaskId();
         FunctionName functionName = mlTask.getFunctionName();
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
-            String modelName = registerModelInput.getModelName();
-            String version = modelVersion == null ? registerModelInput.getVersion() : modelVersion;
-            Instant now = Instant.now();
-            if (registerModelInput.getConnector() != null) {
-                registerModelInput.getConnector().encrypt(mlEngine::encrypt);
-            }
-
-            mlIndicesHandler.initModelIndexIfAbsent(ActionListener.wrap(boolResponse -> {
-                MLModel mlModelMeta = MLModel
-                    .builder()
-                    .name(modelName)
-                    .algorithm(functionName)
-                    .modelGroupId(registerModelInput.getModelGroupId())
-                    .version(version)
-                    .description(registerModelInput.getDescription())
-                    .rateLimiter(registerModelInput.getRateLimiter())
-                    .modelFormat(registerModelInput.getModelFormat())
-                    .modelState(MLModelState.REGISTERED)
-                    .connector(registerModelInput.getConnector())
-                    .connectorId(registerModelInput.getConnectorId())
-                    .modelConfig(registerModelInput.getModelConfig())
-                    .deploySetting(registerModelInput.getDeploySetting())
-                    .createdTime(now)
-                    .lastUpdateTime(now)
-                    .isHidden(registerModelInput.getIsHidden())
-                    .guardrails(registerModelInput.getGuardrails())
-                    .build();
-
-                IndexRequest indexModelMetaRequest = new IndexRequest(ML_MODEL_INDEX);
-                if (registerModelInput.getIsHidden() != null && registerModelInput.getIsHidden()) {
-                    indexModelMetaRequest.id(modelName);
-                }
-                indexModelMetaRequest.source(mlModelMeta.toXContent(XContentBuilder.builder(JSON.xContent()), EMPTY_PARAMS));
-                indexModelMetaRequest.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-
-                // index remote model doc
-                ActionListener<IndexResponse> indexListener = ActionListener.wrap(modelMetaRes -> {
-                    String modelId = modelMetaRes.getId();
-                    mlTask.setModelId(modelId);
-                    log.info("create new model meta doc {} for upload task {}", modelId, taskId);
-                    mlTaskManager.updateMLTask(taskId, Map.of(MODEL_ID_FIELD, modelId, STATE_FIELD, COMPLETED), 5000, true);
-                    if (registerModelInput.isDeployModel()) {
-                        deployModelAfterRegistering(registerModelInput, modelId);
-                    }
-                    listener.onResponse(new MLRegisterModelResponse(taskId, MLTaskState.CREATED.name(), modelId));
-                }, e -> {
-                    log.error("Failed to index model meta doc", e);
-                    handleException(functionName, taskId, e);
-                    listener.onFailure(e);
-                });
-
-                client.index(indexModelMetaRequest, threadedActionListener(REGISTER_THREAD_POOL, indexListener));
-            }, error -> {
-                // failed to initialize the model index
-                log.error("Failed to init model index", error);
-                handleException(functionName, taskId, error);
-                listener.onFailure(error);
-            }));
+        String modelName = registerModelInput.getModelName();
+        String version = modelVersion == null ? registerModelInput.getVersion() : modelVersion;
+        Instant now = Instant.now();
+        if (registerModelInput.getConnector() != null) {
+            registerModelInput.getConnector().encrypt(mlEngine::encrypt);
         }
+
+        Boolean created = mlIndicesHandler.initModelIndexIfAbsent();
+        if (!Boolean.TRUE.equals(created)) {
+            listener.onFailure(new RuntimeException("Failed to init model index"));
+        }
+        MLModel mlModelMeta = MLModel
+            .builder()
+            .name(modelName)
+            .algorithm(functionName)
+            .modelGroupId(registerModelInput.getModelGroupId())
+            .version(version)
+            .description(registerModelInput.getDescription())
+            .rateLimiter(registerModelInput.getRateLimiter())
+            .modelFormat(registerModelInput.getModelFormat())
+            .modelState(MLModelState.REGISTERED)
+            .connector(registerModelInput.getConnector())
+            .connectorId(registerModelInput.getConnectorId())
+            .modelConfig(registerModelInput.getModelConfig())
+            .deploySetting(registerModelInput.getDeploySetting())
+            .createdTime(now)
+            .lastUpdateTime(now)
+            .isHidden(registerModelInput.getIsHidden())
+            .guardrails(registerModelInput.getGuardrails())
+            .tenantId(registerModelInput.getTenantId())
+            .build();
+
+        String modelId = modelDao.createModel(mlModelMeta);
+        // index remote model doc
+        mlTask.setModelId(modelId);
+        log.info("create new model meta doc {} for upload task {}", modelId, taskId);
+        mlTaskManager.updateMLTask(taskId, Map.of(MODEL_ID_FIELD, modelId, STATE_FIELD, COMPLETED), 5000, true);
+        if (registerModelInput.isDeployModel()) {
+            deployModelAfterRegistering(registerModelInput, modelId);
+        }
+        listener.onResponse(new MLRegisterModelResponse(taskId, MLTaskState.CREATED.name(), modelId));
     }
 
     @VisibleForTesting
@@ -603,6 +539,7 @@ public class MLModelManager {
                     .lastUpdateTime(now)
                     .isHidden(registerModelInput.getIsHidden())
                     .guardrails(registerModelInput.getGuardrails())
+                    .tenantId(registerModelInput.getTenantId())
                     .build();
                 IndexRequest indexModelMetaRequest = new IndexRequest(ML_MODEL_INDEX);
                 if (registerModelInput.getIsHidden() != null && registerModelInput.getIsHidden()) {
@@ -872,7 +809,7 @@ public class MLModelManager {
     void deployModelAfterRegistering(MLRegisterModelInput registerModelInput, String modelId) {
         String[] modelNodeIds = registerModelInput.getModelNodeIds();
         log.debug("start deploying model after registering, modelId: {} on nodes: {}", modelId, Arrays.toString(modelNodeIds));
-        MLDeployModelRequest request = new MLDeployModelRequest(modelId, modelNodeIds, false, true, true);
+        MLDeployModelRequest request = new MLDeployModelRequest(modelId, modelNodeIds, false, false, true);
         ActionListener<MLDeployModelResponse> listener = ActionListener
             .wrap(r -> log.debug("model deployed, response {}", r), e -> log.error("Failed to deploy model", e));
         client.execute(MLDeployModelAction.INSTANCE, request, listener);

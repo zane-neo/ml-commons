@@ -7,6 +7,7 @@ package org.opensearch.ml.common.transport.register;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.Setter;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -95,6 +96,9 @@ public class MLRegisterModelInput implements ToXContentObject, Writeable {
 
     private Boolean isHidden;
     private Guardrails guardrails;
+
+    @Setter
+    private String tenantId;
 
     @Builder(toBuilder = true)
     public MLRegisterModelInput(FunctionName functionName,

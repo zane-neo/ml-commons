@@ -22,6 +22,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.ml.common.FunctionName;
+import org.opensearch.ml.common.input.Constants;
 import org.opensearch.ml.common.transport.register.MLRegisterModelAction;
 import org.opensearch.ml.common.transport.register.MLRegisterModelInput;
 import org.opensearch.ml.common.transport.register.MLRegisterModelRequest;
@@ -102,6 +103,8 @@ public class RestMLRegisterModelAction extends BaseRestHandler {
         } else if (FunctionName.isDLModel(mlInput.getFunctionName()) && !mlFeatureEnabledSetting.isLocalModelEnabled()) {
             throw new IllegalStateException(LOCAL_MODEL_DISABLED_ERR_MSG);
         }
+        String tenantId = request.getHeaders().get(Constants.TENANT_ID).get(0);
+        mlInput.setTenantId(tenantId);
         return new MLRegisterModelRequest(mlInput);
     }
 }

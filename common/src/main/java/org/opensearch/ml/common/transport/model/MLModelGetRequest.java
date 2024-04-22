@@ -16,6 +16,7 @@ import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.ml.common.transport.AbstractGetRequest;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -27,7 +28,7 @@ import static org.opensearch.action.ValidateActions.addValidationError;
 @Getter
 @FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
 @ToString
-public class MLModelGetRequest extends ActionRequest {
+public class MLModelGetRequest extends AbstractGetRequest {
 
     String modelId;
     boolean returnContent;

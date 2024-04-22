@@ -58,6 +58,12 @@ public class MLIndicesHandler {
         initMLIndexIfAbsent(MLIndex.MODEL, listener);
     }
 
+    public Boolean initModelIndexIfAbsent() throws ExecutionException, InterruptedException {
+        PlainActionFuture<Boolean> actionFuture = PlainActionFuture.newFuture();
+        initModelIndexIfAbsent(actionFuture);
+        return actionFuture.get();
+    }
+
     public void initMLTaskIndex(ActionListener<Boolean> listener) {
         initMLIndexIfAbsent(MLIndex.TASK, listener);
     }

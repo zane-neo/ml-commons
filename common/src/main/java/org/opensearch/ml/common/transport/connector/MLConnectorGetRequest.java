@@ -14,6 +14,7 @@ import org.opensearch.core.common.io.stream.InputStreamStreamInput;
 import org.opensearch.core.common.io.stream.OutputStreamStreamOutput;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.ml.common.transport.AbstractGetRequest;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -24,11 +25,10 @@ import static org.opensearch.action.ValidateActions.addValidationError;
 
 @Getter
 @Setter
-public class MLConnectorGetRequest extends ActionRequest {
+public class MLConnectorGetRequest extends AbstractGetRequest {
 
     String connectorId;
 
-    String tenantId;
     boolean returnContent;
 
     @Builder

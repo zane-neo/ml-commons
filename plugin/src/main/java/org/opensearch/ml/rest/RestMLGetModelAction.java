@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.opensearch.client.node.NodeClient;
+import org.opensearch.ml.common.input.Constants;
 import org.opensearch.ml.common.transport.model.MLModelGetAction;
 import org.opensearch.ml.common.transport.model.MLModelGetRequest;
 import org.opensearch.rest.BaseRestHandler;
@@ -59,7 +60,10 @@ public class RestMLGetModelAction extends BaseRestHandler {
     MLModelGetRequest getRequest(RestRequest request) throws IOException {
         String modelId = getParameterId(request, PARAMETER_MODEL_ID);
         boolean returnContent = returnContent(request);
+        String tenantId = request.getHeaders().get(Constants.TENANT_ID).get(0);
 
-        return new MLModelGetRequest(modelId, returnContent, true);
+        MLModelGetRequest mlModelGetRequest = new MLModelGetRequest(modelId, returnContent, true);
+        mlModelGetRequest.setTenantId(tenantId);
+        return mlModelGetRequest;
     }
 }

@@ -35,6 +35,8 @@ public class MLModelGroup implements ToXContentObject {
 
     public static final String ACCESS = "access"; //assigned to public, private, or null when model group created
     public static final String MODEL_GROUP_ID_FIELD = "model_group_id"; //unique ID assigned to each model group
+
+    public static final String TENANT_ID_FIELD = "tenant_id";
     public static final String CREATED_TIME_FIELD = "created_time"; //model group created time stamp
     public static final String LAST_UPDATED_TIME_FIELD = "last_updated_time"; //updated whenever a new model version is created
 
@@ -42,6 +44,7 @@ public class MLModelGroup implements ToXContentObject {
     @Setter
     private String name;
     private String description;
+    @Setter
     private int latestVersion;
     private List<String> backendRoles;
     private User owner;
@@ -50,7 +53,10 @@ public class MLModelGroup implements ToXContentObject {
 
     private String modelGroupId;
 
+    private String tenantId;
+
     private Instant createdTime;
+    @Setter
     private Instant lastUpdatedTime;
 
 
@@ -58,6 +64,7 @@ public class MLModelGroup implements ToXContentObject {
     public MLModelGroup(String name, String description, int latestVersion,
                         List<String> backendRoles, User owner, String access,
                         String modelGroupId,
+                        String tenantId,
                         Instant createdTime,
                         Instant lastUpdatedTime) {
         this.name = Objects.requireNonNull(name, "model group name must not be null");
@@ -67,6 +74,7 @@ public class MLModelGroup implements ToXContentObject {
         this.owner = owner;
         this.access = access;
         this.modelGroupId = modelGroupId;
+        this.tenantId = tenantId;
         this.createdTime = createdTime;
         this.lastUpdatedTime = lastUpdatedTime;
     }
@@ -132,6 +140,9 @@ public class MLModelGroup implements ToXContentObject {
         if (modelGroupId != null) {
             builder.field(MODEL_GROUP_ID_FIELD, modelGroupId);
         }
+        if (tenantId != null) {
+            builder.field(TENANT_ID_FIELD, tenantId);
+        }
         if (createdTime != null) {
             builder.field(CREATED_TIME_FIELD, createdTime.toEpochMilli());
         }
@@ -150,6 +161,7 @@ public class MLModelGroup implements ToXContentObject {
         User owner = null;
         String access = null;
         String modelGroupId = null;
+        String tenantId = null;
         Instant createdTime = null;
         Instant lastUpdateTime = null;
 
@@ -184,6 +196,9 @@ public class MLModelGroup implements ToXContentObject {
                 case MODEL_GROUP_ID_FIELD:
                     modelGroupId = parser.text();
                     break;
+                case TENANT_ID_FIELD:
+                    tenantId = parser.text();
+                    break;
                 case CREATED_TIME_FIELD:
                     createdTime = Instant.ofEpochMilli(parser.longValue());
                     break;
@@ -203,6 +218,7 @@ public class MLModelGroup implements ToXContentObject {
                 .owner(owner)
                 .access(access)
                 .modelGroupId(modelGroupId)
+                .tenantId(tenantId)
                 .createdTime(createdTime)
                 .lastUpdatedTime(lastUpdateTime)
                 .build();

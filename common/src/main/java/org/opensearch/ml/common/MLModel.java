@@ -40,6 +40,8 @@ import static org.opensearch.ml.common.connector.Connector.createConnector;
 public class MLModel implements ToXContentObject {
     @Deprecated
     public static final String ALGORITHM_FIELD = "algorithm";
+
+    public static final String TENANT_ID_FIELD = "tenant_id";
     public static final String FUNCTION_NAME_FIELD = "function_name";
     public static final String MODEL_NAME_FIELD = "name";
     public static final String MODEL_GROUP_ID_FIELD = "model_group_id";
@@ -133,6 +135,7 @@ public class MLModel implements ToXContentObject {
     private Connector connector;
     private String connectorId;
     private Guardrails guardrails;
+    private String tenantId;
 
     @Builder(toBuilder = true)
     public MLModel(String name,
@@ -166,7 +169,8 @@ public class MLModel implements ToXContentObject {
             Boolean isHidden,
             Connector connector,
             String connectorId,
-            Guardrails guardrails) {
+            Guardrails guardrails,
+            String tenantId) {
         this.name = name;
         this.modelGroupId = modelGroupId;
         this.algorithm = algorithm;
@@ -200,6 +204,7 @@ public class MLModel implements ToXContentObject {
         this.connector = connector;
         this.connectorId = connectorId;
         this.guardrails = guardrails;
+        this.tenantId = tenantId;
     }
 
     public MLModel(StreamInput input) throws IOException {
@@ -442,6 +447,9 @@ public class MLModel implements ToXContentObject {
         if (guardrails != null) {
             builder.field(GUARDRAILS_FIELD, guardrails);
         }
+        if (tenantId != null) {
+            builder.field(TENANT_ID_FIELD, tenantId);
+        }
         builder.endObject();
         return builder;
     }
@@ -486,6 +494,7 @@ public class MLModel implements ToXContentObject {
         Connector connector = null;
         String connectorId = null;
         Guardrails guardrails = null;
+        String tenantId = null;
 
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.currentToken(), parser);
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -617,6 +626,9 @@ public class MLModel implements ToXContentObject {
                 case GUARDRAILS_FIELD:
                     guardrails = Guardrails.parse(parser);
                     break;
+                case TENANT_ID_FIELD:
+                    tenantId = parser.text();
+                    break;
                 default:
                     parser.skipChildren();
                     break;
@@ -656,6 +668,7 @@ public class MLModel implements ToXContentObject {
                 .connector(connector)
                 .connectorId(connectorId)
                 .guardrails(guardrails)
+                .tenantId(tenantId)
                 .build();
     }
 

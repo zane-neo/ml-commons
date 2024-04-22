@@ -27,6 +27,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.AbstractModule;
 import org.opensearch.common.inject.Module;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
@@ -154,6 +155,8 @@ import org.opensearch.ml.common.transport.undeploy.MLUndeployModelsAction;
 import org.opensearch.ml.common.transport.update_cache.MLUpdateModelCacheAction;
 import org.opensearch.ml.common.transport.upload_chunk.MLRegisterModelMetaAction;
 import org.opensearch.ml.common.transport.upload_chunk.MLUploadModelChunkAction;
+import org.opensearch.ml.dao.model.ModelDao;
+import org.opensearch.ml.dao.model.OpenSearchRestModelDao;
 import org.opensearch.ml.engine.MLEngine;
 import org.opensearch.ml.engine.MLEngineClassLoader;
 import org.opensearch.ml.engine.ModelHelper;
@@ -351,6 +354,10 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin, Searc
     private ScriptService scriptService;
     private Encryptor encryptor;
 
+    private MetaDataAccessModule metaDataAccessModule;
+
+    private ModelDao modelDao;
+
     public MachineLearningPlugin(Settings settings) {
         // Handle this here as this feature is tied to Search/Query API, not to a ml-common API
         // and as such, it can't be lazy-loaded when a ml-commons API is invoked.
@@ -424,7 +431,16 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin, Searc
 
     @Override
     public Collection<Module> createGuiceModules() {
-        Collection<Module> modules = Arrays.asList(new MetaDataAccessModule());
+        List<Module> modules = new ArrayList<>();
+        metaDataAccessModule = new MetaDataAccessModule();
+        modules.add(metaDataAccessModule);
+        modules.add(new AbstractModule() {
+
+            @Override
+            protected void configure() {
+                bind(ModelDao.class).to(OpenSearchRestModelDao.class);
+            }
+        });
         return modules;
     }
 
@@ -452,6 +468,7 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin, Searc
         Settings settings = environment.settings();
         Path dataPath = environment.dataFiles()[0];
         Path configFile = environment.configFile();
+        modelDao = new OpenSearchRestModelDao(metaDataAccessModule.createOpenSearchClient());
 
         encryptor = new EncryptorImpl(clusterService, client);
 
@@ -504,7 +521,8 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin, Searc
             mlTaskManager,
             modelCacheHelper,
             mlEngine,
-            nodeHelper
+            nodeHelper,
+            modelDao
         );
         mlInputDatasetHandler = new MLInputDatasetHandler(client);
         modelAccessControlHelper = new ModelAccessControlHelper(clusterService, settings);
@@ -667,7 +685,8 @@ public class MachineLearningPlugin extends Plugin implements ActionPlugin, Searc
                 clusterManagerEventListener,
                 mlCircuitBreakerService,
                 mlModelAutoRedeployer,
-                cmHandler
+                cmHandler,
+                modelDao
             );
     }
 
