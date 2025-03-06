@@ -185,6 +185,7 @@ integTest {
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
             includeTestsMatching "org.opensearch.ml.rest.RestCohereInferenceIT"
+            includeTestsMatching "org.opensearch.ml.rest.RestBedRockInferenceIT"
             // mock LLM run in localhost, it will not reachable for docker or remote cluster
             excludeTestsMatching "org.opensearch.ml.tools.VisualizationsToolIT"
         }
