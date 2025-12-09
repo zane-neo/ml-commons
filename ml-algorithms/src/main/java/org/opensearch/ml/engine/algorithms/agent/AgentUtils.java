@@ -756,25 +756,29 @@ public class AgentUtils {
                     toolListener.onResponse(Collections.emptyList());
                     return;
                 }
-                connector.decrypt("", (credential, tid) -> encryptor.decrypt(credential, tenantId), tenantId);
-
-                List<MLToolSpec> mcpToolSpecs;
-                if (connector instanceof McpConnector) {
-                    McpConnectorExecutor connectorExecutor = MLEngineClassLoader
-                        .initInstance(connector.getProtocol(), connector, Connector.class);
-                    mcpToolSpecs = connectorExecutor.getMcpToolSpecs();
-                    toolListener.onResponse(mcpToolSpecs);
-                    return;
-                }
-                if (connector instanceof McpStreamableHttpConnector) {
-                    McpStreamableHttpConnectorExecutor connectorExecutor = MLEngineClassLoader
-                        .initInstance(connector.getProtocol(), connector, Connector.class);
-                    mcpToolSpecs = connectorExecutor.getMcpToolSpecs();
-                    toolListener.onResponse(mcpToolSpecs);
-                    return;
-                }
-                log.error("Unsupported connector type for connector: " + connectorId);
-                toolListener.onResponse(Collections.emptyList());
+                ActionListener<Boolean> decryptSuccessfulListener = ActionListener.wrap(r -> {
+                    List<MLToolSpec> mcpToolSpecs;
+                    if (connector instanceof McpConnector) {
+                        McpConnectorExecutor connectorExecutor = MLEngineClassLoader
+                            .initInstance(connector.getProtocol(), connector, Connector.class);
+                        mcpToolSpecs = connectorExecutor.getMcpToolSpecs();
+                        toolListener.onResponse(mcpToolSpecs);
+                        return;
+                    }
+                    if (connector instanceof McpStreamableHttpConnector) {
+                        McpStreamableHttpConnectorExecutor connectorExecutor = MLEngineClassLoader
+                            .initInstance(connector.getProtocol(), connector, Connector.class);
+                        mcpToolSpecs = connectorExecutor.getMcpToolSpecs();
+                        toolListener.onResponse(mcpToolSpecs);
+                        return;
+                    }
+                    log.error("Unsupported connector type for connector: " + connectorId);
+                    toolListener.onResponse(Collections.emptyList());
+                }, e -> {
+                    log.error("Failed to decrypt credentials in connector", e);
+                    toolListener.onFailure(e);
+                });
+                connector.decrypt("", encryptor::decrypt, tenantId, decryptSuccessfulListener);
             } catch (Exception e) {
                 log.error("Failed to get tools from connector: " + connectorId, e);
                 toolListener.onResponse(Collections.emptyList());
