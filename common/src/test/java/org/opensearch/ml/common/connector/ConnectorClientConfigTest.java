@@ -25,7 +25,7 @@ public class ConnectorClientConfigTest {
             .builder()
             .maxConnections(10)
             .connectionTimeoutMillis(1000)
-            .readTimeoutSeconds(3)
+            .readTimeoutMillis(3)
             .retryBackoffMillis(123)
             .retryTimeoutSeconds(456)
             .maxRetryTimes(789)
@@ -56,7 +56,7 @@ public class ConnectorClientConfigTest {
             .builder()
             .maxConnections(10)
             .connectionTimeoutMillis(1000)
-            .readTimeoutSeconds(3)
+            .readTimeoutMillis(3)
             .retryBackoffMillis(123)
             .retryTimeoutSeconds(456)
             .maxRetryTimes(789)
@@ -72,7 +72,7 @@ public class ConnectorClientConfigTest {
 
         Assert.assertEquals(Integer.valueOf(10), readConfig.getMaxConnections());
         Assert.assertEquals(Integer.valueOf(1000), readConfig.getConnectionTimeoutMillis());
-        Assert.assertEquals(Integer.valueOf(3), readConfig.getReadTimeoutSeconds());
+        Assert.assertEquals(Integer.valueOf(3), readConfig.getReadTimeoutMillis());
         Assert.assertNull(readConfig.getRetryBackoffMillis());
         Assert.assertNull(readConfig.getRetryTimeoutSeconds());
         Assert.assertNull(readConfig.getMaxRetryTimes());
@@ -85,7 +85,7 @@ public class ConnectorClientConfigTest {
             .builder()
             .maxConnections(10)
             .connectionTimeoutMillis(1000)
-            .readTimeoutSeconds(3)
+            .readTimeoutMillis(3)
             .retryBackoffMillis(123)
             .retryTimeoutSeconds(456)
             .maxRetryTimes(789)
@@ -118,7 +118,7 @@ public class ConnectorClientConfigTest {
 
         Assert.assertEquals(Integer.valueOf(10), config.getMaxConnections());
         Assert.assertEquals(Integer.valueOf(5000), config.getConnectionTimeoutMillis());
-        Assert.assertEquals(Integer.valueOf(3), config.getReadTimeoutSeconds());
+        Assert.assertEquals(Integer.valueOf(3), config.getReadTimeoutMillis());
         Assert.assertEquals(Integer.valueOf(123), config.getRetryBackoffMillis());
         Assert.assertEquals(Integer.valueOf(456), config.getRetryTimeoutSeconds());
         Assert.assertEquals(Integer.valueOf(789), config.getMaxRetryTimes());
@@ -148,7 +148,7 @@ public class ConnectorClientConfigTest {
 
         Assert.assertNull(config.getMaxConnections());
         Assert.assertNull(config.getConnectionTimeoutMillis());
-        Assert.assertNull(config.getReadTimeoutSeconds());
+        Assert.assertNull(config.getReadTimeoutMillis());
         Assert.assertNull(config.getRetryBackoffMillis());
         Assert.assertNull(config.getRetryTimeoutSeconds());
         Assert.assertNull(config.getMaxRetryTimes());
@@ -161,7 +161,7 @@ public class ConnectorClientConfigTest {
 
         Assert.assertEquals(Integer.valueOf(30), config.getMaxConnections());
         Assert.assertEquals(Integer.valueOf(1000), config.getConnectionTimeoutMillis());
-        Assert.assertEquals(Integer.valueOf(10), config.getReadTimeoutSeconds());
+        Assert.assertEquals(Integer.valueOf(10000), config.getReadTimeoutMillis());
         Assert.assertEquals(Integer.valueOf(200), config.getRetryBackoffMillis());
         Assert.assertEquals(Integer.valueOf(30), config.getRetryTimeoutSeconds());
         Assert.assertEquals(Integer.valueOf(0), config.getMaxRetryTimes());
