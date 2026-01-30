@@ -61,6 +61,7 @@ import org.opensearch.transport.TransportChannel;
 import org.opensearch.transport.client.Client;
 
 import lombok.Builder;
+import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 
 public interface RemoteConnectorExecutor {
 
@@ -193,6 +194,8 @@ public interface RemoteConnectorExecutor {
     default void setUserRateLimiterMap(Map<String, TokenBucket> userRateLimiterMap) {}
 
     default void setMlGuard(MLGuard mlGuard) {}
+
+    default void setAsyncHttpClient(SdkAsyncHttpClient client);
 
     default void preparePayloadAndInvoke(
         String action,
