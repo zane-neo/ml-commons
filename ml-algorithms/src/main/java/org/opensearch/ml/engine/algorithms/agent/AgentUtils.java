@@ -87,6 +87,9 @@ import org.opensearch.ml.common.connector.Connector;
 import org.opensearch.ml.common.connector.HttpConnector;
 import org.opensearch.ml.common.connector.McpConnector;
 import org.opensearch.ml.common.connector.McpStreamableHttpConnector;
+import org.opensearch.ml.common.input.execute.agent.ContentBlock;
+import org.opensearch.ml.common.input.execute.agent.ContentType;
+import org.opensearch.ml.common.input.execute.agent.Message;
 import org.opensearch.ml.common.output.model.ModelTensor;
 import org.opensearch.ml.common.output.model.ModelTensorOutput;
 import org.opensearch.ml.common.spi.tools.Tool;
@@ -97,6 +100,7 @@ import org.opensearch.ml.engine.algorithms.remote.McpStreamableHttpConnectorExec
 import org.opensearch.ml.engine.encryptor.Encryptor;
 import org.opensearch.ml.engine.function_calling.FunctionCalling;
 import org.opensearch.ml.engine.memory.ConversationIndexMemory;
+import org.opensearch.ml.engine.memory.ConversationIndexMessage;
 import org.opensearch.ml.engine.tools.McpSseTool;
 import org.opensearch.ml.engine.tools.McpStreamableHttpTool;
 import org.opensearch.remote.metadata.client.GetDataObjectRequest;
@@ -391,6 +395,7 @@ public class AgentUtils {
         List<String> interactions,
         FunctionCalling functionCalling
     ) {
+        // TODO: Handle Function calling in a different function
         Map<String, String> modelOutput = new HashMap<>();
         Map<String, ?> dataAsMap = tmpModelTensorOutput.getMlModelOutputs().get(0).getMlModelTensors().get(0).getDataAsMap();
         String llmResponseExcludePath = parameters.get(LLM_RESPONSE_EXCLUDE_PATH);
@@ -429,6 +434,12 @@ public class AgentUtils {
                 llmFinishReason = JsonPath.read(dataAsMap, llmFinishReasonPath);
             }
             if (parameters.get(LLM_FINISH_REASON_TOOL_USE).equalsIgnoreCase(llmFinishReason) || isToolUseResponse) {
+                // Handles tool calls
+                // TODO: Refactor tool call detection logic into FunctionCalling interface.
+                // Currently, we rely on finish_reason to detect tool calls, but some LLMs (e.g., Gemini)
+                // use the same finish_reason for both tool calls and final responses. The workaround
+                // uses isToolUseResponse flag or checks if functionCalling.handle() returns tool calls.
+                // This logic should be centralized in the FunctionCalling interface to handle LLM-specific differences.
                 List<Map<String, String>> toolCalls = null;
                 try {
                     String toolName = "";
@@ -846,31 +857,35 @@ public class AgentUtils {
                     toolListener.onResponse(Collections.emptyList());
                     return;
                 }
-                connector.decrypt("", (credential, tid) -> encryptor.decrypt(credential, tenantId), tenantId);
+                ActionListener<Boolean> decryptSuccessfulListener = ActionListener.wrap(r -> {
+                    List<MLToolSpec> mcpToolSpecs;
+                    if (client == null) {
+                        throw new IllegalArgumentException("Client cannot be null for MCP connector execution");
+                    }
 
-                List<MLToolSpec> mcpToolSpecs;
-                if (client == null) {
-                    throw new IllegalArgumentException("Client cannot be null for MCP connector execution");
-                }
-
-                if (connector instanceof McpConnector) {
-                    McpConnectorExecutor connectorExecutor = MLEngineClassLoader
-                        .initInstance(connector.getProtocol(), connector, Connector.class);
-                    connectorExecutor.setClient(client);
-                    mcpToolSpecs = connectorExecutor.getMcpToolSpecs();
-                    toolListener.onResponse(mcpToolSpecs);
-                    return;
-                }
-                if (connector instanceof McpStreamableHttpConnector) {
-                    McpStreamableHttpConnectorExecutor connectorExecutor = MLEngineClassLoader
-                        .initInstance(connector.getProtocol(), connector, Connector.class);
-                    connectorExecutor.setClient(client);
-                    mcpToolSpecs = connectorExecutor.getMcpToolSpecs();
-                    toolListener.onResponse(mcpToolSpecs);
-                    return;
-                }
-                log.error("Unsupported connector type for connector: " + connectorId);
-                toolListener.onResponse(Collections.emptyList());
+                    if (connector instanceof McpConnector) {
+                        McpConnectorExecutor connectorExecutor = MLEngineClassLoader
+                            .initInstance(connector.getProtocol(), connector, Connector.class);
+                        connectorExecutor.setClient(client);
+                        mcpToolSpecs = connectorExecutor.getMcpToolSpecs();
+                        toolListener.onResponse(mcpToolSpecs);
+                        return;
+                    }
+                    if (connector instanceof McpStreamableHttpConnector) {
+                        McpStreamableHttpConnectorExecutor connectorExecutor = MLEngineClassLoader
+                            .initInstance(connector.getProtocol(), connector, Connector.class);
+                        connectorExecutor.setClient(client);
+                        mcpToolSpecs = connectorExecutor.getMcpToolSpecs();
+                        toolListener.onResponse(mcpToolSpecs);
+                        return;
+                    }
+                    log.error("Unsupported connector type for connector: " + connectorId);
+                    toolListener.onResponse(Collections.emptyList());
+                }, e -> {
+                    log.error("Failed to decrypt credentials in connector", e);
+                    toolListener.onFailure(e);
+                });
+                connector.decrypt("", encryptor::decrypt, tenantId, decryptSuccessfulListener);
             } catch (Exception e) {
                 log.error("Failed to get tools from connector: " + connectorId, e);
                 toolListener.onResponse(Collections.emptyList());
@@ -897,17 +912,17 @@ public class AgentUtils {
             .build();
 
         try (ThreadContext.StoredContext ctx = client.threadPool().getThreadContext().stashContext()) {
-            ActionListener<Connector> wrappedListener = ActionListener.runBefore(listener, ctx::restore);
             sdkClient.getDataObjectAsync(getDataObjectRequest).whenComplete((r, throwable) -> {
                 log.debug("Completed Get Connector Request, id:{}", connectorId);
+                ctx.restore();
                 if (throwable != null) {
                     Exception cause = SdkClientUtils.unwrapAndConvertToException(throwable);
                     if (ExceptionsHelper.unwrap(cause, IndexNotFoundException.class) != null) {
                         log.error("Failed to get connector index", cause);
-                        wrappedListener.onFailure(new OpenSearchStatusException("Failed to find connector", RestStatus.NOT_FOUND));
+                        listener.onFailure(new OpenSearchStatusException("Failed to find connector", RestStatus.NOT_FOUND));
                     } else {
                         log.error("Failed to get ML connector {}", connectorId, cause);
-                        wrappedListener.onFailure(cause);
+                        listener.onFailure(cause);
                     }
                 } else {
                     try {
@@ -921,17 +936,17 @@ public class AgentUtils {
                             ) {
                                 ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
                                 Connector connector = Connector.createConnector(parser);
-                                wrappedListener.onResponse(connector);
+                                listener.onResponse(connector);
                             } catch (Exception e) {
                                 log.error("Failed to parse connector:{}", connectorId);
-                                wrappedListener.onFailure(e);
+                                listener.onFailure(e);
                             }
                         } else {
-                            wrappedListener
+                            listener
                                 .onFailure(new OpenSearchStatusException("Failed to find connector:" + connectorId, RestStatus.NOT_FOUND));
                         }
                     } catch (Exception e) {
-                        wrappedListener.onFailure(e);
+                        listener.onFailure(e);
                     }
                 }
             });
@@ -1271,5 +1286,142 @@ public class AgentUtils {
         } catch (IllegalArgumentException e) {
             return false;
         }
+    }
+
+    /**
+     * Extract text content from a message's content blocks.
+     *
+     * @param message The message to extract text from
+     * @return The concatenated text content, trimmed
+     */
+    public static String extractTextFromMessage(Message message) {
+        if (message == null || message.getContent() == null) {
+            return "";
+        }
+
+        StringBuilder textBuilder = new StringBuilder();
+        for (ContentBlock block : message.getContent()) {
+            if (block.getType() == ContentType.TEXT && block.getText() != null) {
+                textBuilder.append(block.getText().trim());
+                textBuilder.append("\n");
+            }
+        }
+
+        return textBuilder.toString().trim();
+    }
+
+    /**
+     * Extract user-assistant message pairs from a list of structured messages.
+     * Processes messages backwards to detect Q&A pairs, skipping trailing user messages,
+     * then reverses the result to maintain chronological order.
+     *
+     * @param messages The list of structured messages to process
+     * @param sessionId The session/conversation ID for the pairs
+     * @param appType The application type to set on each pair (may be null)
+     * @return A list of ConversationIndexMessage pairs in chronological order
+     */
+    public static List<ConversationIndexMessage> extractMessagePairs(List<Message> messages, String sessionId, String appType) {
+        if (messages == null || messages.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<ConversationIndexMessage> messagePairs = new ArrayList<>();
+
+        StringBuilder userTextBuilder = new StringBuilder();
+        StringBuilder assistantTextBuilder = new StringBuilder();
+        boolean skippingTrailingUsers = true;
+        String currentRole = null;
+
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Message message = messages.get(i);
+
+            if (message == null || message.getRole() == null) {
+                continue;
+            }
+
+            String role = message.getRole().toLowerCase();
+
+            // Skip non-user/assistant roles
+            if (!role.equals("user") && !role.equals("assistant")) {
+                continue;
+            }
+
+            // Skip trailing user messages
+            if (skippingTrailingUsers && role.equals("user")) {
+                continue;
+            }
+
+            if (skippingTrailingUsers && role.equals("assistant")) {
+                skippingTrailingUsers = false;
+            }
+
+            // Detect role change from user to assistant (going backwards)
+            if (currentRole != null && currentRole.equals("user") && role.equals("assistant")) {
+                // Save the accumulated pair
+                String userText = userTextBuilder.toString().trim();
+                String assistantText = assistantTextBuilder.toString().trim();
+
+                if (!userText.isEmpty() && !assistantText.isEmpty()) {
+                    ConversationIndexMessage msg = ConversationIndexMessage
+                        .conversationIndexMessageBuilder()
+                        .type(appType)
+                        .question(userText)
+                        .response(assistantText)
+                        .finalAnswer(true)
+                        .sessionId(sessionId)
+                        .build();
+
+                    messagePairs.add(msg);
+                }
+
+                // Clear buffers for next pair
+                userTextBuilder.setLength(0);
+                assistantTextBuilder.setLength(0);
+            }
+
+            // Extract text
+            String text = extractTextFromMessage(message);
+
+            // Accumulate text based on role (prepending since we're going backwards)
+            if (role.equals("user")) {
+                if (!text.isEmpty()) {
+                    if (userTextBuilder.length() > 0) {
+                        userTextBuilder.insert(0, "\n");
+                    }
+                    userTextBuilder.insert(0, text);
+                }
+            } else if (role.equals("assistant")) {
+                if (!text.isEmpty()) {
+                    if (assistantTextBuilder.length() > 0) {
+                        assistantTextBuilder.insert(0, "\n");
+                    }
+                    assistantTextBuilder.insert(0, text);
+                }
+            }
+
+            currentRole = role;
+        }
+
+        // Save any remaining pair
+        String userText = userTextBuilder.toString().trim();
+        String assistantText = assistantTextBuilder.toString().trim();
+
+        if (!userText.isEmpty() && !assistantText.isEmpty()) {
+            ConversationIndexMessage msg = ConversationIndexMessage
+                .conversationIndexMessageBuilder()
+                .type(appType)
+                .question(userText)
+                .response(assistantText)
+                .finalAnswer(true)
+                .sessionId(sessionId)
+                .build();
+
+            messagePairs.add(msg);
+        }
+
+        // Reverse to maintain chronological order
+        Collections.reverse(messagePairs);
+
+        return messagePairs;
     }
 }
