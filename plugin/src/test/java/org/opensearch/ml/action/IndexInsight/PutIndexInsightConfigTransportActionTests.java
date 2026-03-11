@@ -12,7 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.ml.engine.encryptor.EncryptorImpl.DEFAULT_TENANT_ID;
+import static org.opensearch.ml.common.CommonValue.DEFAULT_TENANT_ID;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;

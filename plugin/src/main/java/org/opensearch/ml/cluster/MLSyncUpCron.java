@@ -6,6 +6,7 @@
 package org.opensearch.ml.cluster;
 
 import static org.opensearch.ml.common.CommonValue.CREATE_TIME_FIELD;
+import static org.opensearch.ml.common.CommonValue.DEFAULT_TENANT_ID;
 import static org.opensearch.ml.common.CommonValue.MASTER_KEY;
 import static org.opensearch.ml.common.CommonValue.ML_CONFIG_INDEX;
 import static org.opensearch.ml.common.CommonValue.ML_MODEL_INDEX;
@@ -46,6 +47,7 @@ import org.opensearch.ml.common.transport.sync.MLSyncUpNodesRequest;
 import org.opensearch.ml.common.transport.undeploy.MLUndeployModelNodesResponse;
 import org.opensearch.ml.common.transport.undeploy.MLUndeployModelsAction;
 import org.opensearch.ml.common.transport.undeploy.MLUndeployModelsRequest;
+import org.opensearch.ml.common.utils.StringUtils;
 import org.opensearch.ml.engine.encryptor.Encryptor;
 import org.opensearch.ml.engine.indices.MLIndicesHandler;
 import org.opensearch.remote.metadata.client.BulkDataObjectRequest;
@@ -251,29 +253,43 @@ public class MLSyncUpCron implements Runnable {
                 log.error("Failed to initialize or update ML Config index");
                 return;
             }
-            GetRequest getRequest = new GetRequest(ML_CONFIG_INDEX).id(MASTER_KEY);
+            // For single-tenant mode, use the DEFAULT_TENANT_ID's hashed document ID to match EncryptorImpl
+            // This ensures MLSyncUpCron reads from the same document that EncryptorImpl writes to
+            String masterKeyId = MASTER_KEY + "_" + StringUtils.hashString(DEFAULT_TENANT_ID);
+            GetRequest getRequest = new GetRequest(ML_CONFIG_INDEX).id(masterKeyId);
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 client.get(getRequest, ActionListener.wrap(getResponse -> {
                     if (!getResponse.isExists()) {
-                        IndexRequest indexRequest = new IndexRequest(ML_CONFIG_INDEX).id(MASTER_KEY);
+                        IndexRequest indexRequest = new IndexRequest(ML_CONFIG_INDEX).id(masterKeyId);
                         final String masterKey = encryptor.generateMasterKey();
                         indexRequest.source(ImmutableMap.of(MASTER_KEY, masterKey, CREATE_TIME_FIELD, Instant.now().toEpochMilli()));
                         indexRequest.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
                         indexRequest.opType(DocWriteRequest.OpType.CREATE);
                         client.index(indexRequest, ActionListener.wrap(indexResponse -> {
                             log.info("ML configuration initialized successfully");
-                            // as this method is not being used for multi-tenancy use case, we are setting
-                            // tenant id null by default
-                            encryptor.setMasterKey(null, masterKey);
+                            // Using DEFAULT_TENANT_ID for single-tenant mode
+                            encryptor.setMasterKey(DEFAULT_TENANT_ID, masterKey);
                             mlConfigInited = true;
                         }, e -> { log.debug("Failed to save ML encryption master key", e); }));
                     } else {
                         final String masterKey = (String) getResponse.getSourceAsMap().get(MASTER_KEY);
-                        // as this method is not being used for multi-tenancy use case, we are setting
-                        // tenant id null by default
-                        encryptor.setMasterKey(null, masterKey);
+                        // Check if the cached master key matches the one in the index
+                        String cachedMasterKey = encryptor.getMasterKey(DEFAULT_TENANT_ID);
+                        if (cachedMasterKey == null) {
+                            // No cached key, set it from the index
+                            encryptor.setMasterKey(DEFAULT_TENANT_ID, masterKey);
+                            log.info("ML configuration already initialized, loaded master key from index");
+                        } else if (!cachedMasterKey.equals(masterKey)) {
+                            // Cached key differs from index - this shouldn't happen in normal operation
+                            log
+                                .warn(
+                                    "Master key mismatch detected! Cached key differs from index. Keeping cached key to avoid decryption failures."
+                                );
+                            // DO NOT overwrite - keep the cached key to prevent breaking active encryptions
+                        } else {
+                            log.debug("ML configuration already initialized, master key already in cache");
+                        }
                         mlConfigInited = true;
-                        log.info("ML configuration already initialized, no action needed");
                     }
                 }, e -> { log.debug("Failed to get ML encryption master key", e); }));
             }

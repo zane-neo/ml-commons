@@ -23,6 +23,8 @@ public class CommonValue {
 
     /** The field name containing the tenant id */
     public static final String TENANT_ID_FIELD = "tenant_id";
+    /** Default tenant ID for single-tenant mode */
+    public static final String DEFAULT_TENANT_ID = "03000200-0400-0500-0006-000700080009";
     public static final String AGENT_ID_FIELD = "agent_id";
 
     public static final String MASTER_KEY = "master_key";

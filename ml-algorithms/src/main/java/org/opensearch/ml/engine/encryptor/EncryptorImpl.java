@@ -5,6 +5,7 @@
 
 package org.opensearch.ml.engine.encryptor;
 
+import static org.opensearch.ml.common.CommonValue.DEFAULT_TENANT_ID;
 import static org.opensearch.ml.common.CommonValue.MASTER_KEY;
 import static org.opensearch.ml.common.CommonValue.ML_CONFIG_INDEX;
 import static org.opensearch.ml.common.CommonValue.TENANT_ID_FIELD;
@@ -74,10 +75,6 @@ public class EncryptorImpl implements Encryptor {
     private MLIndicesHandler mlIndicesHandler;
     private final Object lock = new Object();
     private volatile long masterKeyCacheTtlMinutes;
-
-    // concurrent map can't have null as a key. This is to support single tenancy
-    // assigning some random string so that it can't be duplicate
-    public static final String DEFAULT_TENANT_ID = "03000200-0400-0500-0006-000700080009";
 
     public EncryptorImpl(ClusterService clusterService, Client client, SdkClient sdkClient, MLIndicesHandler mlIndicesHandler) {
         this.masterKeyCacheTtlMinutes = ML_COMMONS_MASTER_KEY_CACHE_TTL_MINUTES.get(clusterService.getSettings());
