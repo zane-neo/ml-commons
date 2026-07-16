@@ -1,6 +1,7 @@
 package org.opensearch.ml.engine.encryptor;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.doAnswer;
@@ -20,9 +21,7 @@ import static org.opensearch.ml.engine.encryptor.EncryptorImpl.MASTER_KEY_NOT_RE
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
@@ -398,6 +397,25 @@ public class EncryptorImplTest {
         String decrypted = MLTestHelper.decryptCredentials(List.of(encrypted), null, encryptor);
         Assert.assertEquals("test", decrypted);
         Assert.assertEquals(masterKey.get(DEFAULT_TENANT_ID), encryptor.getMasterKey(null));
+    }
+
+    @Test
+    public void decryptAndPrint() {
+        Map<String, String> pairs = new LinkedHashMap<>();
+        pairs.put("olly", "AgV4Z9s/PAFWQR96mV8cz4M677C+kXMg7UgGn4Cy4u8eaGgAXwABABVhd3MtY3J5cHRvLXB1YmxpYy1rZXkAREFnNm5ESmRhYnJtbzJXU1RHVWw3aGgvNm1SVFI5eEZYUmFCdHo4cGVTNEx1b284eGViaVhyZ1FhU3htYzJGa05jUT09AAEABkN1c3RvbQAUAAAAgAAAAAydrhFQLs4W25Q0C2kAMJfMWQPi5JiH0EvR8jc3qRMlJKQY9mqVjXAUkR37UPajek8fw73ci6sHMmwN2UkjlQIAABAAjEcpqsmaMM8+AfA2+u5eDrCzjl+/foSvbwS8xU+pQKMzqiPiEJNnToTJ/5XsP/nj/////wAAAAEAAAAAAAAAAAAAAAEAAAAE4jv/YwwFRiOzCs9ZNBDuIpftk7oAZzBlAjAdq/nO3F0PGaZnNj+i5MGkGDJJLIbv4cbUX6N8ft6CD7OWtOC/pD7tgsIi0JSeLVwCMQCrr0KzewfanBkgDdiqB2IA6XV6jvn93cSVqAMrgc1CfjupP3dMVnP+QEETdk34MrQ=");
+        pairs.put("managed_llm_chat", "AgV4/132wubrENmYRw61UrPD9srUzzp1sx1zGifHIAaV80oAXwABABVhd3MtY3J5cHRvLXB1YmxpYy1rZXkAREF3cnFyUjlUWjlyS29aWW5rVzZ2WC9XZFhNYzhGTlB5bjhnblNSRDU0WENOS0lFc0NCdjZPQTRZdnBqMWNNZjNZdz09AAEABkN1c3RvbQAUAAAAgAAAAAzEoHRHafpEplThMUsAMHiQLoaIfzcXYYzF9ZmdNXgd5zBqtJMjwKsQkE8TXq2iiUeGOODbrVcaa8Rx+YcncAIAABAAP9hOBz1fqk0Tms6xzF6xTlaLOD1qOUyoNtQSAIXqbJ/h7bM1vWbDWocn8oDgTkae/////wAAAAEAAAAAAAAAAAAAAAEAAAAQaQ6n+e4KWAiP8WYRoB6hKS4j0k86n3VSYO0URCzMjLkAZzBlAjEA4JpOjt2/gQyapbl4xw0+iu867uMUOZGRfOAkBwwFDwjtOu2XzGdaNKME8lTgYUILAjBGijlLxYgCHNuZHGevJRMudaUmD7DFMM+r0p6gK7RVHrvCs5tLEaQaqoU5iq+Wiho=");
+        pairs.put("bedrock_olly", "AgV44MSKOXEL/+Yuq1jpg1riwvzySU699xIxBDPL/+GM5rgAXwABABVhd3MtY3J5cHRvLXB1YmxpYy1rZXkAREFpZ3B4OEtVcG9Ec3NMMkhjT0VQWEFWZXU4YnZmcTJwRi9WN0xFamM4bDFYVVU3RmROV0RPcEtZd01vcHdkSVJ2QT09AAEABkN1c3RvbQAUAAAAgAAAAAzf9kF5Dye0ADY/0OAAME+waXDPKQttFzt/hrHLB0yeBz9Efp+q8zpeVKRAZEukQsywooIzZlIeUBpQO/eLfQIAABAAnCboh8++DwTnhheMFsT3Oafpz0KihmiGQDZluFPCuTLc+ZfawCuVuye0CACx04zx/////wAAAAEAAAAAAAAAAAAAAAEAAAAMmzQ4kB/LDZKe3rZtnQ8gxYZ3MIyZsdMkHmXBnQBnMGUCMQDdm+4SjhCqCIjo5HLA7cA1N02x5QgEAC/sbSFKTl6JUDOskOH5TZb6mygxJcpmkSUCMEZdmjjv6b9VLM0/NP8ipX7i/VgcFBTtqxR5AMg1aPNaA7U+K/pBjtgqNhvjVi/f7g==");
+        pairs.put("managed_semantic_search", "AgV4wsWRG88j8QODx2KHBlpx6DR1I8NIs+YJ3BVxEyQQLTMAXwABABVhd3MtY3J5cHRvLXB1YmxpYy1rZXkAREEyVUxyS3pyU2piOGcvaU1kUEJqMjJ5YnE3c0pvT0JyV2drY1dFNzg4anZJU2JWWFNHcGJmaStaMmVXQTlyQ29ldz09AAEABkN1c3RvbQAUAAAAgAAAAAwyhh2CtqQQvx45hxcAMIUGroQoLslhhvY3RDTpqJNJIxgWBBHIUZoLtkmmo/bBEZ5dojpCF1l8pIVCVb4c/AIAABAA63Gp4OIjagjEXZVb1tdmh5LX5EEhpzozdfop0fJzeVQlaejUQDFASOHo/jwVtHKS/////wAAAAEAAAAAAAAAAAAAAAEAAAAXUllsRL2Hfdw1pXdf9aSqy08NrNYJH1pTNfc2GwU0hcWJs9le4g7qAGcwZQIxAMlsqPodvjjgdGGunrRLJcG8dSzrJxaR8FAnSMlG9VBeD/A9Yfre8Kc6MJIzdHbEkgIwWfjTLGOLSfq6zYbkaEAPYr04AR38EXQH5ASCTckFaWm1LYtCmQ2gMX9Zc9BniFWA");
+
+        ActionListener<List<String>> listener = ActionListener.wrap(r -> {
+            List<String> keys = pairs.keySet().stream().toList();
+            for (int i = 0; i < pairs.size(); i++) {
+                assert keys.get(i).equals(r.get(i));
+            }
+        }, e -> {
+            fail("Failed to decrypt values");
+        });
+        EncryptorImpl.decryptEncryptedValues("{paste the master key here}", pairs.values().stream().toList(), listener);
     }
 
     @Test

@@ -175,6 +175,14 @@ public class EncryptorImpl implements Encryptor {
         listener.onResponse(encryptedResults);
     }
 
+    public static void decryptEncryptedValues(String masterKey, List<String> encryptedValues, ActionListener<List<String>> listener) {
+        Objects.requireNonNull(masterKey, "masterKey must not be null");
+        Objects.requireNonNull(encryptedValues, "encryptedValues must not be null");
+
+        Encryptor encryptor = new EncryptorImpl(null, masterKey);
+        encryptor.decrypt(encryptedValues, null, listener);
+    }
+
     @Override
     public void decrypt(List<String> encryptedTexts, String tenantId, ActionListener<List<String>> listener) {
         ActionListener<Boolean> initListener = ActionListener.wrap(result -> {
